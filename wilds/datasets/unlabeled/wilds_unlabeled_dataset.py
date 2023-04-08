@@ -172,7 +172,7 @@ class WILDSUnlabeledSubset(WILDSUnlabeledDataset):
             "_split_names",
             "_metadata_fields",
             "_metadata_map",
-            "_y_array", 
+            "_y_array",
         ]
         for attr_name in inherited_attrs:
             if hasattr(dataset, attr_name):
@@ -201,8 +201,10 @@ class WILDSUnlabeledSubset(WILDSUnlabeledDataset):
     def metadata_array(self):
         return self.dataset.metadata_array[self.indices]
 
+
 class WILDSPseudolabeledSubset(WILDSUnlabeledDataset):
     """Pseudolabeled subset initialized from an unlabeled subset"""
+
     def __init__(self, reference_subset, pseudolabels, transform, collate=None):
         assert len(reference_subset) == len(pseudolabels)
         self.pseudolabels = pseudolabels

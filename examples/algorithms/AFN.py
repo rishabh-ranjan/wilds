@@ -3,6 +3,7 @@ import torch
 from algorithms.single_model_algorithm import SingleModelAlgorithm
 from models.initializer import initialize_model
 
+
 class AFN(SingleModelAlgorithm):
     """
     Adaptive Feature Norm (AFN)
@@ -28,7 +29,9 @@ class AFN(SingleModelAlgorithm):
         n_train_steps,
     ):
         # Initialize model
-        featurizer, classifier = initialize_model(config, d_out=d_out, is_featurizer=True)
+        featurizer, classifier = initialize_model(
+            config, d_out=d_out, is_featurizer=True
+        )
         model = torch.nn.Sequential(featurizer, classifier)
 
         # Initialize module
@@ -84,7 +87,7 @@ class AFN(SingleModelAlgorithm):
                 - g (Tensor): groups for batch
                 - metadata (Tensor): metadata for batch
                 - features (Tensor): featurizer output for batch
-                - y_pred (Tensor): full model output for batch 
+                - y_pred (Tensor): full model output for batch
                 - unlabeled_features (Tensor): featurizer outputs for unlabeled_batch
         """
         # Forward pass
@@ -106,7 +109,7 @@ class AFN(SingleModelAlgorithm):
         if unlabeled_batch is not None:
             unlabeled_x, _ = unlabeled_batch
             unlabeled_x = unlabeled_x.to(self.device)
-            results['unlabeled_features'] = self.featurizer(unlabeled_x)
+            results["unlabeled_features"] = self.featurizer(unlabeled_x)
         return results
 
     def objective(self, results):

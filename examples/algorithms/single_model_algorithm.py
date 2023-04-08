@@ -7,14 +7,18 @@ from torch.nn import DataParallel
 from torch.nn.utils import clip_grad_norm_
 from utils import move_to
 
+
 class SingleModelAlgorithm(GroupAlgorithm):
     """
     An abstract class for algorithm that has one underlying model.
     """
+
     def __init__(self, config, model, grouper, loss, metric, n_train_steps):
         # get metrics
         self.loss = loss
-        logged_metrics = [self.loss,]
+        logged_metrics = [
+            self.loss,
+        ]
         if metric is not None:
             self.metric = metric
             logged_metrics.append(self.metric)
@@ -22,7 +26,7 @@ class SingleModelAlgorithm(GroupAlgorithm):
             self.metric = None
 
         # initialize models, optimizers, and schedulers
-        if not hasattr(self, 'optimizer') or self.optimizer is None:
+        if not hasattr(self, "optimizer") or self.optimizer is None:
             self.optimizer = initialize_optimizer(config, model)
         self.max_grad_norm = config.max_grad_norm
         scheduler = initialize_scheduler(config, self.optimizer, n_train_steps)
@@ -39,9 +43,13 @@ class SingleModelAlgorithm(GroupAlgorithm):
             device=config.device,
             grouper=grouper,
             logged_metrics=logged_metrics,
-            logged_fields=['objective'],
-            schedulers=[scheduler,],
-            scheduler_metric_names=[config.scheduler_metric_name,],
+            logged_fields=["objective"],
+            schedulers=[
+                scheduler,
+            ],
+            scheduler_metric_names=[
+                config.scheduler_metric_name,
+            ],
             no_group_logging=config.no_group_logging,
         )
         self.model = model
@@ -67,7 +75,7 @@ class SingleModelAlgorithm(GroupAlgorithm):
                 - y_true (Tensor): ground truth labels for batch
                 - g (Tensor): groups for batch
                 - metadata (Tensor): metadata for batch
-                - y_pred (Tensor): model output for batch 
+                - y_pred (Tensor): model output for batch
                 - unlabeled_g (Tensor): groups for unlabeled batch
                 - unlabeled_metadata (Tensor): metadata for unlabeled batch
                 - unlabeled_features (Tensor): features for unlabeled batch
@@ -80,17 +88,19 @@ class SingleModelAlgorithm(GroupAlgorithm):
         outputs = self.get_model_output(x, y_true)
 
         results = {
-            'g': g,
-            'y_true': y_true,
-            'y_pred': outputs,
-            'metadata': metadata,
+            "g": g,
+            "y_true": y_true,
+            "y_pred": outputs,
+            "metadata": metadata,
         }
         if unlabeled_batch is not None:
             x, metadata = unlabeled_batch
             x = x.to(self.device)
-            results['unlabeled_metadata'] = metadata
-            results['unlabeled_features'] = self.featurizer(x)
-            results['unlabeled_g'] = self.grouper.metadata_to_group(metadata).to(self.device)
+            results["unlabeled_metadata"] = metadata
+            results["unlabeled_features"] = self.featurizer(x)
+            results["unlabeled_g"] = self.grouper.metadata_to_group(metadata).to(
+                self.device
+            )
         return results
 
     def objective(self, results):
@@ -112,7 +122,7 @@ class SingleModelAlgorithm(GroupAlgorithm):
         """
         assert not self.is_training
         results = self.process_batch(batch)
-        results['objective'] = self.objective(results).item()
+        results["objective"] = self.objective(results).item()
         self.update_log(results)
         return self.sanitize_dict(results)
 
@@ -141,7 +151,10 @@ class SingleModelAlgorithm(GroupAlgorithm):
         # update running statistics and update model if we've reached end of effective batch
         self._update(
             results,
-            should_step=(((self.batch_idx + 1) % self.gradient_accumulation_steps == 0) or (is_epoch_end))
+            should_step=(
+                ((self.batch_idx + 1) % self.gradient_accumulation_steps == 0)
+                or (is_epoch_end)
+            ),
         )
         self.update_log(results)
 
@@ -162,7 +175,7 @@ class SingleModelAlgorithm(GroupAlgorithm):
         """
         # compute objective
         objective = self.objective(results)
-        results['objective'] = objective.item()
+        results["objective"] = objective.item()
         objective.backward()
 
         # update model and logs based on effective batch
@@ -171,9 +184,8 @@ class SingleModelAlgorithm(GroupAlgorithm):
                 clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
             self.optimizer.step()
             self.step_schedulers(
-                is_epoch=False,
-                metrics=self.log_dict,
-                log_access=False)
+                is_epoch=False, metrics=self.log_dict, log_access=False
+            )
             self.model.zero_grad()
 
     def save_metric_for_logging(self, results, metric, value):

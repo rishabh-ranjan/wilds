@@ -6,7 +6,7 @@ class Algorithm(nn.Module):
     def __init__(self, device):
         super().__init__()
         self.device = device
-        self.out_device = 'cpu'
+        self.out_device = "cpu"
         self._has_log = False
         self.reset_log()
 

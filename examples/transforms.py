@@ -26,7 +26,7 @@ def initialize_transform(
         return None
     elif transform_name == "bert":
         return initialize_bert_transform(config)
-    elif transform_name == 'rxrx1':
+    elif transform_name == "rxrx1":
         return initialize_rxrx1_transform(is_training)
 
     # For images
@@ -34,9 +34,7 @@ def initialize_transform(
     if transform_name == "image_base":
         transform_steps = get_image_base_transform_steps(config, dataset)
     elif transform_name == "image_resize":
-        transform_steps = get_image_resize_transform_steps(
-            config, dataset
-        )
+        transform_steps = get_image_resize_transform_steps(config, dataset)
     elif transform_name == "image_resize_and_center_crop":
         transform_steps = get_image_resize_and_center_crop_transform_steps(
             config, dataset
@@ -54,15 +52,17 @@ def initialize_transform(
         _DEFAULT_IMAGE_TENSOR_NORMALIZATION_STD,
     )
     if additional_transform_name == "fixmatch":
-        if transform_name == 'poverty':
-            transformations = add_poverty_fixmatch_transform(config, dataset, transform_steps)
+        if transform_name == "poverty":
+            transformations = add_poverty_fixmatch_transform(
+                config, dataset, transform_steps
+            )
         else:
             transformations = add_fixmatch_transform(
                 config, dataset, transform_steps, default_normalization
             )
         transform = MultipleTransforms(transformations)
     elif additional_transform_name == "randaugment":
-        if transform_name == 'poverty':
+        if transform_name == "poverty":
             transform = add_poverty_rand_augment_transform(
                 config, dataset, transform_steps
             )
@@ -123,20 +123,24 @@ def initialize_bert_transform(config):
 
     return transform
 
+
 def initialize_rxrx1_transform(is_training):
     def standardize(x: torch.Tensor) -> torch.Tensor:
         mean = x.mean(dim=(1, 2))
         std = x.std(dim=(1, 2))
-        std[std == 0.] = 1.
+        std[std == 0.0] = 1.0
         return TF.normalize(x, mean, std)
+
     t_standardize = transforms.Lambda(lambda x: standardize(x))
 
     angles = [0, 90, 180, 270]
+
     def random_rotation(x: torch.Tensor) -> torch.Tensor:
         angle = angles[torch.randint(low=0, high=len(angles), size=(1,))]
         if angle > 0:
             x = TF.rotate(x, angle)
         return x
+
     t_random_rotation = transforms.Lambda(lambda x: random_rotation(x))
 
     if is_training:
@@ -153,6 +157,7 @@ def initialize_rxrx1_transform(is_training):
         ]
     transform = transforms.Compose(transforms_ls)
     return transform
+
 
 def get_image_base_transform_steps(config, dataset) -> List:
     transform_steps = []
@@ -190,23 +195,28 @@ def get_image_resize_transform_steps(config, dataset) -> List:
     scaled_resolution = tuple(
         int(res * config.resize_scale) for res in dataset.original_resolution
     )
-    return [
-        transforms.Resize(scaled_resolution)
-    ]
+    return [transforms.Resize(scaled_resolution)]
+
 
 def add_fixmatch_transform(config, dataset, base_transform_steps, normalization):
     return (
         add_weak_transform(config, dataset, base_transform_steps, True, normalization),
-        add_rand_augment_transform(config, dataset, base_transform_steps, normalization)
+        add_rand_augment_transform(
+            config, dataset, base_transform_steps, normalization
+        ),
     )
+
 
 def add_poverty_fixmatch_transform(config, dataset, base_transform_steps):
     return (
         add_weak_transform(config, dataset, base_transform_steps, False, None),
-        add_poverty_rand_augment_transform(config, dataset, base_transform_steps)
+        add_poverty_rand_augment_transform(config, dataset, base_transform_steps),
     )
 
-def add_weak_transform(config, dataset, base_transform_steps, should_normalize, normalization):
+
+def add_weak_transform(
+    config, dataset, base_transform_steps, should_normalize, normalization
+):
     # Adapted from https://github.com/YBZh/Bridging_UDA_SSL
     target_resolution = _get_target_resolution(config, dataset)
     weak_transform_steps = copy.deepcopy(base_transform_steps)
@@ -223,6 +233,7 @@ def add_weak_transform(config, dataset, base_transform_steps, should_normalize, 
         weak_transform_steps.append(normalization)
     return transforms.Compose(weak_transform_steps)
 
+
 def add_rand_augment_transform(config, dataset, base_transform_steps, normalization):
     # Adapted from https://github.com/YBZh/Bridging_UDA_SSL
     target_resolution = _get_target_resolution(config, dataset)
@@ -230,9 +241,7 @@ def add_rand_augment_transform(config, dataset, base_transform_steps, normalizat
     strong_transform_steps.extend(
         [
             transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(
-                size=target_resolution
-            ),
+            transforms.RandomCrop(size=target_resolution),
             RandAugment(
                 n=config.randaugment_n,
                 augmentation_pool=FIX_MATCH_AUGMENTATION_POOL,
@@ -243,10 +252,16 @@ def add_rand_augment_transform(config, dataset, base_transform_steps, normalizat
     )
     return transforms.Compose(strong_transform_steps)
 
+
 def poverty_rgb_color_transform(ms_img, transform):
     from wilds.datasets.poverty_dataset import _MEANS_2009_17, _STD_DEVS_2009_17
-    poverty_rgb_means = np.array([_MEANS_2009_17[c] for c in ['RED', 'GREEN', 'BLUE']]).reshape((-1, 1, 1))
-    poverty_rgb_stds = np.array([_STD_DEVS_2009_17[c] for c in ['RED', 'GREEN', 'BLUE']]).reshape((-1, 1, 1))
+
+    poverty_rgb_means = np.array(
+        [_MEANS_2009_17[c] for c in ["RED", "GREEN", "BLUE"]]
+    ).reshape((-1, 1, 1))
+    poverty_rgb_stds = np.array(
+        [_STD_DEVS_2009_17[c] for c in ["RED", "GREEN", "BLUE"]]
+    ).reshape((-1, 1, 1))
 
     def unnormalize_rgb_in_poverty_ms_img(ms_img):
         result = ms_img.detach().clone()
@@ -258,22 +273,28 @@ def poverty_rgb_color_transform(ms_img, transform):
         result[:3] = (result[:3] - poverty_rgb_means) / poverty_rgb_stds
         return ms_img
 
-    color_transform = transforms.Compose([
-        transforms.Lambda(lambda ms_img: unnormalize_rgb_in_poverty_ms_img(ms_img)),
-        transform,
-        transforms.Lambda(lambda ms_img: normalize_rgb_in_poverty_ms_img(ms_img)),
-    ])
+    color_transform = transforms.Compose(
+        [
+            transforms.Lambda(lambda ms_img: unnormalize_rgb_in_poverty_ms_img(ms_img)),
+            transform,
+            transforms.Lambda(lambda ms_img: normalize_rgb_in_poverty_ms_img(ms_img)),
+        ]
+    )
     # The first three channels of the Poverty MS images are BGR
     # So we shuffle them to the standard RGB to do the ColorJitter
     # Before shuffling them back
-    ms_img[:3] = color_transform(ms_img[[2,1,0]])[[2,1,0]] # bgr to rgb to bgr
+    ms_img[:3] = color_transform(ms_img[[2, 1, 0]])[[2, 1, 0]]  # bgr to rgb to bgr
     return ms_img
+
 
 def add_poverty_rand_augment_transform(config, dataset, base_transform_steps):
     def poverty_color_jitter(ms_img):
         return poverty_rgb_color_transform(
             ms_img,
-            transforms.ColorJitter(brightness=0.8, contrast=0.8, saturation=0.8, hue=0.1))
+            transforms.ColorJitter(
+                brightness=0.8, contrast=0.8, saturation=0.8, hue=0.1
+            ),
+        )
 
     def ms_cutout(ms_img):
         def _sample_uniform(a, b):
@@ -281,13 +302,13 @@ def add_poverty_rand_augment_transform(config, dataset, base_transform_steps):
 
         assert ms_img.shape[1] == ms_img.shape[2]
         img_width = ms_img.shape[1]
-        cutout_width = _sample_uniform(0, img_width/2)
+        cutout_width = _sample_uniform(0, img_width / 2)
         cutout_center_x = _sample_uniform(0, img_width)
         cutout_center_y = _sample_uniform(0, img_width)
-        x0 = int(max(0, cutout_center_x - cutout_width/2))
-        y0 = int(max(0, cutout_center_y - cutout_width/2))
-        x1 = int(min(img_width, cutout_center_x + cutout_width/2))
-        y1 = int(min(img_width, cutout_center_y + cutout_width/2))
+        x0 = int(max(0, cutout_center_x - cutout_width / 2))
+        y0 = int(max(0, cutout_center_y - cutout_width / 2))
+        x1 = int(min(img_width, cutout_center_x + cutout_width / 2))
+        y1 = int(min(img_width, cutout_center_y + cutout_width / 2))
 
         # Fill with 0 because the data is already normalized to mean zero
         ms_img[:, x0:x1, y0:y1] = 0
@@ -295,16 +316,21 @@ def add_poverty_rand_augment_transform(config, dataset, base_transform_steps):
 
     target_resolution = _get_target_resolution(config, dataset)
     strong_transform_steps = copy.deepcopy(base_transform_steps)
-    strong_transform_steps.extend([
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),
-        transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), shear=0.1, scale=(0.9, 1.1)),
-        transforms.Lambda(lambda ms_img: poverty_color_jitter(ms_img)),
-        transforms.Lambda(lambda ms_img: ms_cutout(ms_img)),
-        # transforms.Lambda(lambda ms_img: viz(ms_img)),
-    ])
+    strong_transform_steps.extend(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomAffine(
+                degrees=10, translate=(0.1, 0.1), shear=0.1, scale=(0.9, 1.1)
+            ),
+            transforms.Lambda(lambda ms_img: poverty_color_jitter(ms_img)),
+            transforms.Lambda(lambda ms_img: ms_cutout(ms_img)),
+            # transforms.Lambda(lambda ms_img: viz(ms_img)),
+        ]
+    )
 
     return transforms.Compose(strong_transform_steps)
+
 
 def _get_target_resolution(config, dataset):
     if config.target_resolution is not None:

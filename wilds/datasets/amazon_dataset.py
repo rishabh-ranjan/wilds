@@ -159,7 +159,7 @@ class AmazonDataset(WILDSDataset):
 
         if self.split_scheme == "user":
             # first compute groupwise accuracies
-            g: torch.Tensor= self._eval_grouper.metadata_to_group(metadata)
+            g: torch.Tensor = self._eval_grouper.metadata_to_group(metadata)
             results: Dict[str, Any] = {
                 **metric.compute(y_pred, y_true),
                 **metric.compute_group_wise(

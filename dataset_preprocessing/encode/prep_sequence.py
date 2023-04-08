@@ -6,11 +6,36 @@ from tqdm import tqdm
 # Sequence preprocessing. Code adapted from Jacob Schreiber.
 
 # Human chromosome names
-chr_IDs = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10',
-           'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19',
-           'chr20', 'chr21', 'chr22', 'chrX']
+chr_IDs = [
+    "chr1",
+    "chr2",
+    "chr3",
+    "chr4",
+    "chr5",
+    "chr6",
+    "chr7",
+    "chr8",
+    "chr9",
+    "chr10",
+    "chr11",
+    "chr12",
+    "chr13",
+    "chr14",
+    "chr15",
+    "chr16",
+    "chr17",
+    "chr18",
+    "chr19",
+    "chr20",
+    "chr21",
+    "chr22",
+    "chrX",
+]
 
-def one_hot_encode(sequence, ignore='N', alphabet=None, dtype='int8', verbose=False, **kwargs):
+
+def one_hot_encode(
+    sequence, ignore="N", alphabet=None, dtype="int8", verbose=False, **kwargs
+):
     """
     Converts a string or list of characters into a one-hot encoding.
     This function will take in either a string or a list and convert it into a one-hot encoding. If the input is a string, each character is assumed to be a different symbol, e.g. 'ACGT' is assumed to be a sequence of four characters. If the input is a list, the elements can be any size.
@@ -56,7 +81,14 @@ def one_hot_encode(sequence, ignore='N', alphabet=None, dtype='int8', verbose=Fa
     return ohe
 
 
-def read_fasta(filename, include_chroms=None, exclude_chroms=None, ignore='N', alphabet=['A', 'C', 'G', 'T', 'N'], verbose=True):
+def read_fasta(
+    filename,
+    include_chroms=None,
+    exclude_chroms=None,
+    ignore="N",
+    alphabet=["A", "C", "G", "T", "N"],
+    verbose=True,
+):
     """
     Read in a FASTA file and output a dictionary of sequences.
     This function will take in the path to a FASTA-formatted file and output a string containing the sequence for each chromosome. Optionally, the user can specify a set of chromosomes to include or exclude from the returned dictionary.
@@ -90,7 +122,7 @@ def read_fasta(filename, include_chroms=None, exclude_chroms=None, ignore='N', a
         for line in tqdm(infile, disable=not verbose):
             if line.startswith(">"):
                 if name is not None and skip_chrom is False:
-                    sequences[name] = ''.join(sequence)
+                    sequences[name] = "".join(sequence)
                 sequence = []
                 name = line[1:].strip("\n")
                 if include_chroms is not None and name not in include_chroms:
@@ -105,27 +137,25 @@ def read_fasta(filename, include_chroms=None, exclude_chroms=None, ignore='N', a
     return sequences
 
 
-def generate_sequence_archive(seq_path='sequence/hg19.genome.fa', output_dir):
+def generate_sequence_archive(seq_path="sequence/hg19.genome.fa", output_dir=None):
     fasta_contents = read_fasta()
     kw_dict = {}
     itime = time.time()
     for chrom in chr_IDs:
         seqstr = fasta_contents[chrom]
-        kw_dict[chrom] = one_hot_encode(seqstr, alphabet=['A', 'C', 'G', 'T', 'N'])
+        kw_dict[chrom] = one_hot_encode(seqstr, alphabet=["A", "C", "G", "T", "N"])
         print(chrom, time.time() - itime)
 
     # Save as npz archive; can take several (>20) minutes
     print("Saving npz archive...")
-    np.savez_compressed('{}/sequence'.format(output_root), **kw_dict)
+    np.savez_compressed("{}/sequence".format(output_root), **kw_dict)
     print(time.time() - itime)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seq_path', required=True)
-    parser.add_argument('--output_dir', required=True)
+    parser.add_argument("--seq_path", required=True)
+    parser.add_argument("--output_dir", required=True)
     args = parser.parse_args()
 
-    generate_sequence_archive(
-        seq_path=args.seq_path,
-        output_dir=args.output_dir)
+    generate_sequence_archive(seq_path=args.seq_path, output_dir=args.output_dir)

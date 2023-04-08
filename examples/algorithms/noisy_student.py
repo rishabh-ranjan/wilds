@@ -117,7 +117,9 @@ class NoisyStudent(SingleModelAlgorithm):
         if unlabeled_batch is not None:
             x_unlab, y_pseudo, metadata_unlab = unlabeled_batch
             x_unlab = move_to(x_unlab, self.device)
-            g_unlab = move_to(self.grouper.metadata_to_group(metadata_unlab), self.device)
+            g_unlab = move_to(
+                self.grouper.metadata_to_group(metadata_unlab), self.device
+            )
             y_pseudo = move_to(y_pseudo, self.device)
             results["unlabeled_metadata"] = metadata_unlab
             results["unlabeled_y_pseudo"] = y_pseudo

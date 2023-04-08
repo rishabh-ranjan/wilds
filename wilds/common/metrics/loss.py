@@ -2,11 +2,12 @@ import torch
 from wilds.common.utils import avg_over_groups, maximum
 from wilds.common.metrics.metric import ElementwiseMetric, Metric, MultiTaskMetric
 
+
 class Loss(Metric):
     def __init__(self, loss_fn, name=None):
         self.loss_fn = loss_fn
         if name is None:
-            name = 'loss'
+            name = "loss"
         super().__init__(name=name)
 
     def _compute(self, y_pred, y_true):
@@ -30,11 +31,12 @@ class Loss(Metric):
         """
         return maximum(metrics)
 
+
 class ElementwiseLoss(ElementwiseMetric):
     def __init__(self, loss_fn, name=None):
         self.loss_fn = loss_fn
         if name is None:
-            name = 'loss'
+            name = "loss"
         super().__init__(name=name)
 
     def _compute_element_wise(self, y_pred, y_true):
@@ -58,11 +60,12 @@ class ElementwiseLoss(ElementwiseMetric):
         """
         return maximum(metrics)
 
+
 class MultiTaskLoss(MultiTaskMetric):
     def __init__(self, loss_fn, name=None):
-        self.loss_fn = loss_fn # should be elementwise
+        self.loss_fn = loss_fn  # should be elementwise
         if name is None:
-            name = 'loss'
+            name = "loss"
         super().__init__(name=name)
 
     def _compute_flattened(self, flattened_y_pred, flattened_y_true):

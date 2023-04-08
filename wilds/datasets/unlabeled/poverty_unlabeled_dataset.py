@@ -17,14 +17,14 @@ from wilds.datasets.unlabeled.wilds_unlabeled_dataset import WILDSUnlabeledDatas
 Image.MAX_IMAGE_PIXELS = 10000000000
 
 from wilds.datasets.poverty_dataset import (
-        DATASET,
-        BAND_ORDER,
-        DHS_COUNTRIES,
-        SURVEY_NAMES,
-        _MEANS_2009_17,
-        _STD_DEVS_2009_17,
-        split_by_countries
-        )
+    DATASET,
+    BAND_ORDER,
+    DHS_COUNTRIES,
+    SURVEY_NAMES,
+    _MEANS_2009_17,
+    _STD_DEVS_2009_17,
+    split_by_countries,
+)
 
 
 class PovertyMapUnlabeledDataset(WILDSUnlabeledDataset):
@@ -68,32 +68,39 @@ class PovertyMapUnlabeledDataset(WILDSUnlabeledDataset):
         LandSat/DMSP/VIIRS data is U.S. Public Domain.
 
     """
-    _dataset_name = 'poverty_unlabeled'
+
+    _dataset_name = "poverty_unlabeled"
     _versions_dict = {
-        '1.0': {
-            'download_url': 'https://worksheets.codalab.org/rest/bundles/0xdfcf71b4f6164cc1a7edb0cbb7444c8c/contents/blob/',
-            'compressed_size': 172_742_430_134,
+        "1.0": {
+            "download_url": "https://worksheets.codalab.org/rest/bundles/0xdfcf71b4f6164cc1a7edb0cbb7444c8c/contents/blob/",
+            "compressed_size": 172_742_430_134,
         }
     }
 
-    def __init__(self, version=None, root_dir='data', download=False,
-                 split_scheme='official',
-                 no_nl=False, fold='A',
-                 use_ood_val=True,
-                 cache_size=100):
+    def __init__(
+        self,
+        version=None,
+        root_dir="data",
+        download=False,
+        split_scheme="official",
+        no_nl=False,
+        fold="A",
+        use_ood_val=True,
+        cache_size=100,
+    ):
         self._version = version
         self._data_dir = self.initialize_data_dir(root_dir, download)
         self._original_resolution = (224, 224)
 
-        if split_scheme=='official':
-            split_scheme = 'countries'
+        if split_scheme == "official":
+            split_scheme = "countries"
 
         self._split_scheme = split_scheme
-        if self._split_scheme == 'countries':
+        if self._split_scheme == "countries":
             self._split_dict = {
-                    "train_unlabeled": 10,
-                    "val_unlabeled": 11,
-                    "test_unlabeled": 12,
+                "train_unlabeled": 10,
+                "val_unlabeled": 11,
+                "test_unlabeled": 12,
             }
             self._split_names = {
                 "train_unlabeled": "Unlabeled Train",
@@ -104,44 +111,52 @@ class PovertyMapUnlabeledDataset(WILDSUnlabeledDataset):
             raise ValueError("Split scheme not recognized")
 
         self.no_nl = no_nl
-        if fold not in {'A', 'B', 'C', 'D', 'E'}:
+        if fold not in {"A", "B", "C", "D", "E"}:
             raise ValueError("Fold must be A, B, C, D, or E")
 
         self.root = Path(self._data_dir)
-        self.metadata = pd.read_csv(self.root / 'unlabeled_metadata.csv')
-        country_folds = SURVEY_NAMES[f'2009-17{fold}']
+        self.metadata = pd.read_csv(self.root / "unlabeled_metadata.csv")
+        country_folds = SURVEY_NAMES[f"2009-17{fold}"]
 
         self._split_array = -1 * np.ones(len(self.metadata))
 
         incountry_folds_split = np.arange(len(self.metadata))
         # take the test countries to be ood
-        idxs_id, idxs_ood_test = split_by_countries(incountry_folds_split, country_folds['test'], self.metadata)
+        idxs_id, idxs_ood_test = split_by_countries(
+            incountry_folds_split, country_folds["test"], self.metadata
+        )
         # also create a validation OOD set
-        idxs_id, idxs_ood_val = split_by_countries(idxs_id, country_folds['val'], self.metadata)
+        idxs_id, idxs_ood_val = split_by_countries(
+            idxs_id, country_folds["val"], self.metadata
+        )
 
-        self._split_array[idxs_id] = self._split_dict['train_unlabeled']
-        self._split_array[idxs_ood_val] = self._split_dict['val_unlabeled']
-        self._split_array[idxs_ood_test] = self._split_dict['test_unlabeled']
+        self._split_array[idxs_id] = self._split_dict["train_unlabeled"]
+        self._split_array[idxs_ood_val] = self._split_dict["val_unlabeled"]
+        self._split_array[idxs_ood_test] = self._split_dict["test_unlabeled"]
 
         # no labels
-        self.metadata['y'] = (-100 * np.ones(len(self.metadata)))
+        self.metadata["y"] = -100 * np.ones(len(self.metadata))
         # no urban/rural classification
-        self.metadata['urban'] = (-100 * np.ones(len(self.metadata)))
+        self.metadata["urban"] = -100 * np.ones(len(self.metadata))
 
         # add country group field
         country_to_idx = {country: i for i, country in enumerate(DHS_COUNTRIES)}
-        self.metadata['country'] = [country_to_idx[country] for country in self.metadata['country'].tolist()]
-        self._metadata_map = {'country': DHS_COUNTRIES}
+        self.metadata["country"] = [
+            country_to_idx[country] for country in self.metadata["country"].tolist()
+        ]
+        self._metadata_map = {"country": DHS_COUNTRIES}
         # rename wealthpooled to y
-        self._metadata_fields = ['urban', 'y', 'country']
-        self._metadata_array = torch.from_numpy(self.metadata[self._metadata_fields].astype(float).to_numpy())
+        self._metadata_fields = ["urban", "y", "country"]
+        self._metadata_array = torch.from_numpy(
+            self.metadata[self._metadata_fields].astype(float).to_numpy()
+        )
         super().__init__(root_dir, download, split_scheme)
 
     def get_input(self, idx):
         """
         Returns x for a given idx.
         """
-        img = np.load(self.root / 'images' / f'landsat_poverty_img_{idx}.npz')['x']
+        img = np.load(self.root / "images" / f"landsat_poverty_img_{idx}.npz")["x"]
         if self.no_nl:
             img[-1] = 0
         img = torch.from_numpy(img).float()

@@ -55,10 +55,12 @@ class DomainDiscriminator(nn.Sequential):
     def get_parameters_with_lr(self, lr) -> List[Dict]:
         return [{"params": self.parameters(), "lr": lr}]
 
+
 class GradientReverseFunction(Function):
     """
     Credit: https://github.com/thuml/Transfer-Learning-Library
     """
+
     @staticmethod
     def forward(
         ctx: Any, input: torch.Tensor, coeff: Optional[float] = 1.0
@@ -76,6 +78,7 @@ class GradientReverseLayer(nn.Module):
     """
     Credit: https://github.com/thuml/Transfer-Learning-Library
     """
+
     def __init__(self):
         super(GradientReverseLayer, self).__init__()
 
@@ -98,7 +101,9 @@ class DomainAdversarialNetwork(nn.Module):
         domains_pred = self.domain_classifier(features)
         return y_pred, domains_pred
 
-    def get_parameters_with_lr(self, featurizer_lr, classifier_lr, discriminator_lr) -> List[Dict]:
+    def get_parameters_with_lr(
+        self, featurizer_lr, classifier_lr, discriminator_lr
+    ) -> List[Dict]:
         """
         Adapted from https://github.com/thuml/Transfer-Learning-Library
 

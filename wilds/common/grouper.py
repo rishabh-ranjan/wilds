@@ -8,12 +8,14 @@ from wilds.common.utils import get_counts
 from wilds.datasets.wilds_dataset import WILDSDataset, WILDSSubset
 import warnings
 
+
 class Grouper:
     """
     Groupers group data points together based on their metadata.
     They are used for training and evaluation,
     e.g., to measure the accuracies of different groups of data.
     """
+
     def __init__(self):
         raise NotImplementedError
 
@@ -56,6 +58,7 @@ class Grouper:
         """
         raise NotImplementedError
 
+
 class CombinatorialGrouper(Grouper):
     def __init__(self, dataset, groupby_fields):
         """
@@ -88,10 +91,14 @@ class CombinatorialGrouper(Grouper):
 
         metadata_fields: List[str] = datasets[0].metadata_fields
         # Build the largest metadata_map to see to check if all the metadata_maps are subsets of each other
-        largest_metadata_map: Dict[str, Union[List, np.ndarray]] = copy.deepcopy(datasets[0].metadata_map)
+        largest_metadata_map: Dict[str, Union[List, np.ndarray]] = copy.deepcopy(
+            datasets[0].metadata_map
+        )
         for i, dataset in enumerate(datasets):
             if isinstance(dataset, WILDSSubset):
-                raise ValueError("Grouper should be defined with full dataset(s) and not subset(s).")
+                raise ValueError(
+                    "Grouper should be defined with full dataset(s) and not subset(s)."
+                )
 
             # The first dataset was used to get the metadata_fields and initial metadata_map
             if i == 0:
@@ -103,11 +110,17 @@ class CombinatorialGrouper(Grouper):
                     f"Expected: {metadata_fields}"
                 )
 
-            if dataset.metadata_map is None: continue
+            if dataset.metadata_map is None:
+                continue
             for field, values in dataset.metadata_map.items():
                 n_overlap = min(len(values), len(largest_metadata_map[field]))
-                if not (np.asarray(values[:n_overlap]) == np.asarray(largest_metadata_map[field][:n_overlap])).all():
-                    raise ValueError("The metadata_maps of the datasets need to be ordered subsets of each other.")
+                if not (
+                    np.asarray(values[:n_overlap])
+                    == np.asarray(largest_metadata_map[field][:n_overlap])
+                ).all():
+                    raise ValueError(
+                        "The metadata_maps of the datasets need to be ordered subsets of each other."
+                    )
 
                 if len(values) > len(largest_metadata_map[field]):
                     largest_metadata_map[field] = values
@@ -116,24 +129,36 @@ class CombinatorialGrouper(Grouper):
         if groupby_fields is None:
             self._n_groups = 1
         else:
-            self.groupby_field_indices = [i for (i, field) in enumerate(metadata_fields) if field in groupby_fields]
+            self.groupby_field_indices = [
+                i
+                for (i, field) in enumerate(metadata_fields)
+                if field in groupby_fields
+            ]
             if len(self.groupby_field_indices) != len(self.groupby_fields):
-                raise ValueError('At least one group field not found in dataset.metadata_fields')
+                raise ValueError(
+                    "At least one group field not found in dataset.metadata_fields"
+                )
 
             metadata_array = torch.cat([dataset.metadata_array for dataset in datasets])
             grouped_metadata = metadata_array[:, self.groupby_field_indices]
             if not isinstance(grouped_metadata, torch.LongTensor):
                 grouped_metadata_long = grouped_metadata.long()
                 if not torch.all(grouped_metadata == grouped_metadata_long):
-                    warnings.warn(f'CombinatorialGrouper: converting metadata with fields [{", ".join(groupby_fields)}] into long')
+                    warnings.warn(
+                        f'CombinatorialGrouper: converting metadata with fields [{", ".join(groupby_fields)}] into long'
+                    )
                 grouped_metadata = grouped_metadata_long
 
             for idx, field in enumerate(self.groupby_fields):
-                min_value = grouped_metadata[:,idx].min()
+                min_value = grouped_metadata[:, idx].min()
                 if min_value < 0:
-                    raise ValueError(f"Metadata for CombinatorialGrouper cannot have values less than 0: {field}, {min_value}")
+                    raise ValueError(
+                        f"Metadata for CombinatorialGrouper cannot have values less than 0: {field}, {min_value}"
+                    )
                 if min_value > 0:
-                    warnings.warn(f"Minimum metadata value for CombinatorialGrouper is not 0 ({field}, {min_value}). This will result in empty groups")
+                    warnings.warn(
+                        f"Minimum metadata value for CombinatorialGrouper is not 0 ({field}, {min_value}). This will result in empty groups"
+                    )
 
             # We assume that the metadata fields are integers,
             # so we can measure the cardinality of each field by taking its max + 1.
@@ -160,21 +185,21 @@ class CombinatorialGrouper(Grouper):
 
     def group_str(self, group):
         if self.groupby_fields is None:
-            return 'all'
+            return "all"
 
         # group is just an integer, not a Tensor
         n = len(self.factors_np)
         metadata = np.zeros(n)
-        for i in range(n-1):
-            metadata[i] = (group % self.factors_np[i+1]) // self.factors_np[i]
-        metadata[n-1] = group // self.factors_np[n-1]
-        group_name = ''
+        for i in range(n - 1):
+            metadata[i] = (group % self.factors_np[i + 1]) // self.factors_np[i]
+        metadata[n - 1] = group // self.factors_np[n - 1]
+        group_name = ""
         for i in reversed(range(n)):
             meta_val = int(metadata[i])
             if self.metadata_map is not None:
                 if self.groupby_fields[i] in self.metadata_map:
                     meta_val = self.metadata_map[self.groupby_fields[i]][meta_val]
-            group_name += f'{self.groupby_fields[i]} = {meta_val}, '
+            group_name += f"{self.groupby_fields[i]} = {meta_val}, "
         group_name = group_name[:-2]
         return group_name
 
@@ -189,4 +214,6 @@ class CombinatorialGrouper(Grouper):
         # a_n * x_n
 
     def group_field_str(self, group):
-        return self.group_str(group).replace('=', ':').replace(',','_').replace(' ','')
+        return (
+            self.group_str(group).replace("=", ":").replace(",", "_").replace(" ", "")
+        )

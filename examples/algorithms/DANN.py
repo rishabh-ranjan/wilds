@@ -9,6 +9,7 @@ from optimizer import initialize_optimizer_with_model_params
 from losses import initialize_loss
 from utils import concat_input
 
+
 class DANN(SingleModelAlgorithm):
     """
     Domain-adversarial training of neural networks.
@@ -43,8 +44,10 @@ class DANN(SingleModelAlgorithm):
             classifier_lr=config.dann_classifier_lr,
             discriminator_lr=config.dann_discriminator_lr,
         )
-        self.optimizer = initialize_optimizer_with_model_params(config, parameters_to_optimize)
-        self.domain_loss = initialize_loss('cross_entropy', config)
+        self.optimizer = initialize_optimizer_with_model_params(
+            config, parameters_to_optimize
+        )
+        self.domain_loss = initialize_loss("cross_entropy", config)
 
         # Initialize module
         super().__init__(
@@ -75,7 +78,7 @@ class DANN(SingleModelAlgorithm):
                 - y_true (Tensor): ground truth labels for batch
                 - g (Tensor): groups for batch
                 - metadata (Tensor): metadata for batch
-                - y_pred (Tensor): model output for batch 
+                - y_pred (Tensor): model output for batch
                 - domains_true (Tensor): true domains for batch and unlabeled batch
                 - domains_pred (Tensor): predicted domains for batch and unlabeled batch
                 - unlabeled_features (Tensor): featurizer outputs for unlabeled_batch
@@ -96,7 +99,7 @@ class DANN(SingleModelAlgorithm):
             domains_true = torch.cat([domains_true, unlabeled_domains_true])
         else:
             x_cat = x
-            
+
         x_cat = x_cat.to(self.device)
         y_true = y_true.to(self.device)
         domains_true = domains_true.to(self.device)

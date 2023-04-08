@@ -27,6 +27,7 @@ class FixMatch(SingleModelAlgorithm):
             year={2020}
             }
     """
+
     def __init__(self, config, d_out, grouper, loss, metric, n_train_steps):
         featurizer, classifier = initialize_model(
             config, d_out=d_out, is_featurizer=True
@@ -45,7 +46,9 @@ class FixMatch(SingleModelAlgorithm):
         # algorithm hyperparameters
         self.fixmatch_lambda = config.self_training_lambda
         self.confidence_threshold = config.self_training_threshold
-        self.process_pseudolabels_function = process_pseudolabels_functions[config.process_pseudolabels_function]
+        self.process_pseudolabels_function = process_pseudolabels_functions[
+            config.process_pseudolabels_function
+        ]
 
         # Additional logging
         self.logged_fields.append("pseudolabels_kept_frac")
@@ -66,8 +69,8 @@ class FixMatch(SingleModelAlgorithm):
                 - y_pred (Tensor): model output for batch
                 - unlabeled_g (Tensor): groups for unlabeled batch
                 - unlabeled_metadata (Tensor): metadata for unlabeled batch
-                - unlabeled_weak_y_pseudo (Tensor): pseudolabels on x_weak of the unlabeled batch, already thresholded 
-                - unlabeled_strong_y_pred (Tensor): model output on x_strong of the unlabeled batch, already thresholded 
+                - unlabeled_weak_y_pseudo (Tensor): pseudolabels on x_weak of the unlabeled batch, already thresholded
+                - unlabeled_strong_y_pred (Tensor): model output on x_strong of the unlabeled batch, already thresholded
         """
         # Labeled examples
         x, y_true, metadata = batch
@@ -75,11 +78,7 @@ class FixMatch(SingleModelAlgorithm):
         y_true = y_true.to(self.device)
         g = self.grouper.metadata_to_group(metadata).to(self.device)
         # package the results
-        results = {
-            'g': g,
-            'y_true': y_true,
-            'metadata': metadata
-        }
+        results = {"g": g, "y_true": y_true, "metadata": metadata}
         pseudolabels_kept_frac = 0
 
         # Unlabeled examples
@@ -89,16 +88,21 @@ class FixMatch(SingleModelAlgorithm):
             x_strong = x_strong.to(self.device)
 
             g = self.grouper.metadata_to_group(metadata).to(self.device)
-            results['unlabeled_metadata'] = metadata
-            results['unlabeled_g'] = g
+            results["unlabeled_metadata"] = metadata
+            results["unlabeled_g"] = g
 
             with torch.no_grad():
                 outputs = self.model(x_weak)
-                _, pseudolabels, pseudolabels_kept_frac, mask = self.process_pseudolabels_function(
+                (
+                    _,
+                    pseudolabels,
+                    pseudolabels_kept_frac,
+                    mask,
+                ) = self.process_pseudolabels_function(
                     outputs,
                     self.confidence_threshold,
                 )
-                results['unlabeled_weak_y_pseudo'] = detach_and_clone(pseudolabels)
+                results["unlabeled_weak_y_pseudo"] = detach_and_clone(pseudolabels)
 
         self.save_metric_for_logging(
             results, "pseudolabels_kept_frac", pseudolabels_kept_frac
@@ -112,23 +116,27 @@ class FixMatch(SingleModelAlgorithm):
             x_concat = x
 
         outputs = self.model(x_concat)
-        results['y_pred'] = outputs[:n_lab]
+        results["y_pred"] = outputs[:n_lab]
         if unlabeled_batch is not None:
-            results['unlabeled_strong_y_pred'] = outputs[n_lab:] if mask is None else outputs[n_lab:][mask]
+            results["unlabeled_strong_y_pred"] = (
+                outputs[n_lab:] if mask is None else outputs[n_lab:][mask]
+            )
         return results
 
     def objective(self, results):
         # Labeled loss
-        classification_loss = self.loss.compute(results['y_pred'], results['y_true'], return_dict=False)
+        classification_loss = self.loss.compute(
+            results["y_pred"], results["y_true"], return_dict=False
+        )
 
         # Pseudolabeled loss
-        if 'unlabeled_weak_y_pseudo' in results:
+        if "unlabeled_weak_y_pseudo" in results:
             loss_output = self.loss.compute(
-                results['unlabeled_strong_y_pred'],
-                results['unlabeled_weak_y_pseudo'],
+                results["unlabeled_strong_y_pred"],
+                results["unlabeled_weak_y_pseudo"],
                 return_dict=False,
             )
-            consistency_loss = loss_output * results['pseudolabels_kept_frac']
+            consistency_loss = loss_output * results["pseudolabels_kept_frac"]
         else:
             consistency_loss = 0
 
@@ -136,8 +144,6 @@ class FixMatch(SingleModelAlgorithm):
         self.save_metric_for_logging(
             results, "classification_loss", classification_loss
         )
-        self.save_metric_for_logging(
-            results, "consistency_loss", consistency_loss
-        )
+        self.save_metric_for_logging(results, "consistency_loss", consistency_loss)
 
         return classification_loss + self.fixmatch_lambda * consistency_loss

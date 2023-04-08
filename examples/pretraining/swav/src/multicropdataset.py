@@ -38,7 +38,7 @@ class CustomSplitDataset(Dataset):
             root_dir=root_dir,
             unlabeled=True,
             download=True,
-            **config.dataset_kwargs
+            **config.dataset_kwargs,
         )
         for split in config.splits:
             subset = dataset.get_subset(split, transform=None)
@@ -58,7 +58,7 @@ class CustomSplitDataset(Dataset):
             ds_idx += 1
         # ds_idx now stores the correct dataset, and index stores
         # the correct position within that dataset
-        x, _ = self.datasets[ds_idx][index] # discard metadata
+        x, _ = self.datasets[ds_idx][index]  # discard metadata
         return x
 
 
@@ -72,7 +72,7 @@ class CustomSplitMultiCropDataset(Dataset):
         min_scale_crops,
         max_scale_crops,
         config,
-        return_index=False
+        return_index=False,
     ):
         super().__init__()
 
@@ -100,27 +100,46 @@ class CustomSplitMultiCropDataset(Dataset):
                 # the PIL implementation will only blur the RGB channels.
                 # The PyTorch and PIL GaussianBlur APIs differ.
                 # Here, we follow SimCLR defaults for the kernel size.
-                trans.extend([transforms.Compose([
-                    random_resized_crop,
-                    transforms.RandomHorizontalFlip(p=0.5),
-                    transforms.Lambda(lambda ms_img: poverty_rgb_color_transform(
-                        ms_img,
-                        color_distortion)),
-                    transforms.RandomApply(
-                        [transforms.GaussianBlur(
-                            kernel_size=23, # nearest odd number to image size (224) / 10
-                            sigma=(0.1,2))],
-                        p=0.5)
-                    ])
-                ] * nmb_crops[i])
+                trans.extend(
+                    [
+                        transforms.Compose(
+                            [
+                                random_resized_crop,
+                                transforms.RandomHorizontalFlip(p=0.5),
+                                transforms.Lambda(
+                                    lambda ms_img: poverty_rgb_color_transform(
+                                        ms_img, color_distortion
+                                    )
+                                ),
+                                transforms.RandomApply(
+                                    [
+                                        transforms.GaussianBlur(
+                                            kernel_size=23,  # nearest odd number to image size (224) / 10
+                                            sigma=(0.1, 2),
+                                        )
+                                    ],
+                                    p=0.5,
+                                ),
+                            ]
+                        )
+                    ]
+                    * nmb_crops[i]
+                )
             else:
-                trans.extend([transforms.Compose([
-                    random_resized_crop,
-                    transforms.RandomHorizontalFlip(p=0.5),
-                    transforms.Compose(color_transform),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=means, std=stds)])
-                ] * nmb_crops[i])
+                trans.extend(
+                    [
+                        transforms.Compose(
+                            [
+                                random_resized_crop,
+                                transforms.RandomHorizontalFlip(p=0.5),
+                                transforms.Compose(color_transform),
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=means, std=stds),
+                            ]
+                        )
+                    ]
+                    * nmb_crops[i]
+                )
 
         self.trans = trans
 
@@ -142,7 +161,7 @@ class PILRandomGaussianBlur(object):
     This transform was used in SimCLR - https://arxiv.org/abs/2002.05709
     """
 
-    def __init__(self, p=0.5, radius_min=0.1, radius_max=2.):
+    def __init__(self, p=0.5, radius_min=0.1, radius_max=2.0):
         self.prob = p
         self.radius_min = radius_min
         self.radius_max = radius_max
@@ -161,7 +180,7 @@ class PILRandomGaussianBlur(object):
 
 def get_color_distortion(s=1.0):
     # s is the strength of color distortion.
-    color_jitter = transforms.ColorJitter(0.8*s, 0.8*s, 0.8*s, 0.2*s)
+    color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
     rnd_color_jitter = transforms.RandomApply([color_jitter], p=0.8)
     rnd_gray = transforms.RandomGrayscale(p=0.2)
     color_distort = transforms.Compose([rnd_color_jitter, rnd_gray])

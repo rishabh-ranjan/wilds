@@ -4,6 +4,7 @@ from algorithms.single_model_algorithm import SingleModelAlgorithm
 from wilds.common.utils import split_into_groups
 from utils import concat_input
 
+
 class DeepCORAL(SingleModelAlgorithm):
     """
     Deep CORAL.
@@ -25,13 +26,16 @@ class DeepCORAL(SingleModelAlgorithm):
     The CORAL penalty function below is adapted from DomainBed's implementation:
     https://github.com/facebookresearch/DomainBed/blob/1a61f7ff44b02776619803a1dd12f952528ca531/domainbed/algorithms.py#L539
     """
+
     def __init__(self, config, d_out, grouper, loss, metric, n_train_steps):
         # check config
-        assert config.train_loader == 'group'
+        assert config.train_loader == "group"
         assert config.uniform_over_groups
         assert config.distinct_groups
         # initialize models
-        featurizer, classifier = initialize_model(config, d_out=d_out, is_featurizer=True)
+        featurizer, classifier = initialize_model(
+            config, d_out=d_out, is_featurizer=True
+        )
         featurizer = featurizer.to(config.device)
         classifier = classifier.to(config.device)
         model = torch.nn.Sequential(featurizer, classifier)
@@ -47,7 +51,7 @@ class DeepCORAL(SingleModelAlgorithm):
         # algorithm hyperparameters
         self.penalty_weight = config.coral_penalty_weight
         # additional logging
-        self.logged_fields.append('penalty')
+        self.logged_fields.append("penalty")
         # set model components
         self.featurizer = featurizer
         self.classifier = classifier
@@ -92,45 +96,58 @@ class DeepCORAL(SingleModelAlgorithm):
         g = self.grouper.metadata_to_group(metadata).to(self.device)
 
         results = {
-            'g': g,
-            'y_true': y_true,
-            'metadata': metadata,
+            "g": g,
+            "y_true": y_true,
+            "metadata": metadata,
         }
 
         if unlabeled_batch is not None:
             unlabeled_x, unlabeled_metadata = unlabeled_batch
             x = concat_input(x, unlabeled_x)
-            unlabeled_g = self.grouper.metadata_to_group(unlabeled_metadata).to(self.device)
-            results['unlabeled_g'] = unlabeled_g
+            unlabeled_g = self.grouper.metadata_to_group(unlabeled_metadata).to(
+                self.device
+            )
+            results["unlabeled_g"] = unlabeled_g
 
         x = x.to(self.device)
         features = self.featurizer(x)
         outputs = self.classifier(features)
         y_pred = outputs[: len(y_true)]
 
-        results['features'] = features
-        results['y_pred'] = y_pred
+        results["features"] = features
+        results["y_pred"] = y_pred
         return results
 
     def objective(self, results):
         if self.is_training:
-            features = results.pop('features')
+            features = results.pop("features")
 
             # Split into groups
-            groups = concat_input(results['g'], results['unlabeled_g']) if 'unlabeled_g' in results else results['g']
+            groups = (
+                concat_input(results["g"], results["unlabeled_g"])
+                if "unlabeled_g" in results
+                else results["g"]
+            )
             unique_groups, group_indices, _ = split_into_groups(groups)
             n_groups_per_batch = unique_groups.numel()
 
             # Compute penalty - perform pairwise comparisons between features of all the groups
             penalty = torch.zeros(1, device=self.device)
             for i_group in range(n_groups_per_batch):
-                for j_group in range(i_group+1, n_groups_per_batch):
-                    penalty += self.coral_penalty(features[group_indices[i_group]], features[group_indices[j_group]])
+                for j_group in range(i_group + 1, n_groups_per_batch):
+                    penalty += self.coral_penalty(
+                        features[group_indices[i_group]],
+                        features[group_indices[j_group]],
+                    )
             if n_groups_per_batch > 1:
-                penalty /= (n_groups_per_batch * (n_groups_per_batch-1) / 2) # get the mean penalty
+                penalty /= (
+                    n_groups_per_batch * (n_groups_per_batch - 1) / 2
+                )  # get the mean penalty
         else:
-            penalty = 0.
+            penalty = 0.0
 
-        self.save_metric_for_logging(results, 'penalty', penalty)
-        avg_loss = self.loss.compute(results['y_pred'], results['y_true'], return_dict=False)
+        self.save_metric_for_logging(results, "penalty", penalty)
+        avg_loss = self.loss.compute(
+            results["y_pred"], results["y_true"], return_dict=False
+        )
         return avg_loss + penalty * self.penalty_weight

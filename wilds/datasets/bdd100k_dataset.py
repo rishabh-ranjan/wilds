@@ -60,56 +60,75 @@ class BDD100KDataset(WILDSDataset):
         "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
     """
 
-    CATEGORIES = ['bicycle', 'bus', 'car', 'motorcycle', 'pedestrian', 'rider',
-                  'traffic light', 'traffic sign', 'truck']
-    TIMEOFDAY_SPLITS = ['daytime', 'night', 'dawn/dusk', 'undefined']
-    LOCATION_SPLITS = ['New York', 'California']
+    CATEGORIES = [
+        "bicycle",
+        "bus",
+        "car",
+        "motorcycle",
+        "pedestrian",
+        "rider",
+        "traffic light",
+        "traffic sign",
+        "truck",
+    ]
+    TIMEOFDAY_SPLITS = ["daytime", "night", "dawn/dusk", "undefined"]
+    LOCATION_SPLITS = ["New York", "California"]
 
-    _dataset_name = 'bdd100k'
+    _dataset_name = "bdd100k"
     _versions_dict = {
-        '1.0': {
-            'download_url': 'https://worksheets.codalab.org/rest/bundles/0x0ac62ae89a644676a57fa61d6aa2f87d/contents/blob/',
-            'compressed_size': None}}
+        "1.0": {
+            "download_url": "https://worksheets.codalab.org/rest/bundles/0x0ac62ae89a644676a57fa61d6aa2f87d/contents/blob/",
+            "compressed_size": None,
+        }
+    }
 
-    def __init__(self, version=None, root_dir='data', download=False, split_scheme='official'):
+    def __init__(
+        self, version=None, root_dir="data", download=False, split_scheme="official"
+    ):
         self._version = version
         self._original_resolution = (1280, 720)
         self._data_dir = self.initialize_data_dir(root_dir, download)
         self.root = Path(self.data_dir)
 
-        if split_scheme in ('official', 'timeofday'):
-            split_to_load = 'timeofday'
-        elif split_scheme == 'location':
-            split_to_load = 'location'
+        if split_scheme in ("official", "timeofday"):
+            split_to_load = "timeofday"
+        elif split_scheme == "location":
+            split_to_load = "location"
         else:
-            raise ValueError("For BDD100K, split scheme should be 'official', "
-                             "'timeofday', or 'location'.")
+            raise ValueError(
+                "For BDD100K, split scheme should be 'official', "
+                "'timeofday', or 'location'."
+            )
         self._split_scheme = split_scheme
-        train_data_df = pd.read_csv(self.root / f'{split_to_load}_train.csv')
-        val_data_df = pd.read_csv(self.root / f'{split_to_load}_val.csv')
-        test_data_df = pd.read_csv(self.root / f'{split_to_load}_test.csv')
+        train_data_df = pd.read_csv(self.root / f"{split_to_load}_train.csv")
+        val_data_df = pd.read_csv(self.root / f"{split_to_load}_val.csv")
+        test_data_df = pd.read_csv(self.root / f"{split_to_load}_test.csv")
         self._image_array = []
         self._split_array, self._y_array, self._metadata_array = [], [], []
 
         for i, df in enumerate([train_data_df, val_data_df, test_data_df]):
-            self._image_array.extend(list(df['image'].values))
+            self._image_array.extend(list(df["image"].values))
             labels = [list(df[cat].values) for cat in self.CATEGORIES]
             labels = list(zip(*labels))
             self._split_array.extend([i] * len(labels))
             self._y_array.extend(labels)
-            self._metadata_array.extend(list(df['group'].values))
+            self._metadata_array.extend(list(df["group"].values))
         self._y_size = len(self.CATEGORIES)
         self._metadata_fields = [split_to_load]
         self._split_array = np.array(self._split_array)
         self._y_array = torch.tensor(self._y_array, dtype=torch.float)
-        self._metadata_array = torch.tensor(self._metadata_array,
-                                            dtype=torch.long).unsqueeze(1)
-        split_names = (self.TIMEOFDAY_SPLITS if split_to_load == 'timeofday'
-                       else self.LOCATION_SPLITS)
+        self._metadata_array = torch.tensor(
+            self._metadata_array, dtype=torch.long
+        ).unsqueeze(1)
+        split_names = (
+            self.TIMEOFDAY_SPLITS
+            if split_to_load == "timeofday"
+            else self.LOCATION_SPLITS
+        )
         self._metadata_map = {split_to_load: split_names}
 
     def get_input(self, idx):
-        img = Image.open(self.root / 'images' / self._image_array[idx])
+        img = Image.open(self.root / "images" / self._image_array[idx])
         return img
 
     def eval(self, y_pred, y_true, metadata, prediction_fn=None):
@@ -121,13 +140,12 @@ class BDD100KDataset(WILDSDataset):
                                are predicted labels.
             - y_true (LongTensor): Ground-truth labels
             - metadata (Tensor): Metadata
-            - prediction_fn (function): A function that turns y_pred into predicted labels 
+            - prediction_fn (function): A function that turns y_pred into predicted labels
         Output:
             - results (dictionary): Dictionary of evaluation metrics
             - results_str (str): String summarizing the evaluation metrics
         """
         metric = MultiTaskAccuracy(prediction_fn=prediction_fn)
         results = metric.compute(y_pred, y_true)
-        results_str = (f'{metric.name}: '
-                       f'{results[metric.agg_metric_field]:.3f}\n')
+        results_str = f"{metric.name}: " f"{results[metric.agg_metric_field]:.3f}\n"
         return results, results_str

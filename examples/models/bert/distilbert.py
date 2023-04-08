@@ -1,5 +1,6 @@
 from transformers import DistilBertForSequenceClassification, DistilBertModel
 
+
 class DistilBertClassifier(DistilBertForSequenceClassification):
     def __init__(self, config):
         super().__init__(config)

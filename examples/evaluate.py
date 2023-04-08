@@ -45,7 +45,7 @@ def evaluate_all_benchmarks(predictions_dir: str, output_dir: str, root_dir: str
         except Exception as e:
             print(f"Could not evaluate predictions for {dataset}:\n{str(e)}")
             raise
-        print('')
+        print("")
 
     # Write out aggregated results to output file
     print(f"Writing complete results to {output_dir}...")
@@ -119,9 +119,7 @@ def evaluate_benchmark(
             raise ValueError(f"Invalid dataset: {dataset_name}")
 
     if not os.path.exists(predictions_dir):
-        raise FileNotFoundError(
-            f"Predictions directory does not exist."
-        )
+        raise FileNotFoundError(f"Predictions directory does not exist.")
 
     # Dataset will only be downloaded if it does not exist
     wilds_dataset: WILDSDataset = get_dataset(
@@ -162,7 +160,10 @@ def evaluate_benchmark(
                     # e.g., {"fold": "A"}
                     dataset_kwargs = {"fold": replicate.split(":")[1]}
                     wilds_dataset: WILDSDataset = get_dataset(
-                        dataset=dataset_name, root_dir=root_dir, download=True, **dataset_kwargs
+                        dataset=dataset_name,
+                        root_dir=root_dir,
+                        download=True,
+                        **dataset_kwargs,
                     )
 
                 metric_results = evaluate_replicate(
@@ -240,7 +241,7 @@ def get_predictions(path: str) -> torch.Tensor:
         file = open(path, mode="r")
         data = file.readlines()
         file.close()
-    
+
     predicted_labels = [literal_eval(line.rstrip()) for line in data if line.rstrip()]
     return torch.from_numpy(np.array(predicted_labels))
 

@@ -43,73 +43,76 @@ class CivilCommentsUnlabeledDataset(WILDSUnlabeledDataset):
     _dataset_name: str = "civilcomments_unlabeled"
     _versions_dict: Dict[str, Dict[str, Union[str, int]]] = {
         "1.0": {
-            'download_url': 'https://worksheets.codalab.org/rest/bundles/0x1c471f23448e4518b000fe47aa7724e0/contents/blob/',
-            'compressed_size': 254_142_009
+            "download_url": "https://worksheets.codalab.org/rest/bundles/0x1c471f23448e4518b000fe47aa7724e0/contents/blob/",
+            "compressed_size": 254_142_009,
         },
     }
 
-    def __init__(self, version=None, root_dir='data', download=False, split_scheme='official'):
+    def __init__(
+        self, version=None, root_dir="data", download=False, split_scheme="official"
+    ):
         self._version = version
         self._data_dir = self.initialize_data_dir(root_dir, download)
 
         # Read in metadata
         self._metadata_df = pd.read_csv(
-            os.path.join(self._data_dir, 'unlabeled_data_with_identities.csv'),
-            index_col=0)
+            os.path.join(self._data_dir, "unlabeled_data_with_identities.csv"),
+            index_col=0,
+        )
 
         # Extract text
-        self._text_array = list(self._metadata_df['comment_text'])
+        self._text_array = list(self._metadata_df["comment_text"])
 
         # Extract splits
         self._split_scheme = split_scheme
-        if self._split_scheme != 'official':
-            raise ValueError(f'Split scheme {self._split_scheme} not recognized')
+        if self._split_scheme != "official":
+            raise ValueError(f"Split scheme {self._split_scheme} not recognized")
 
         # metadata_df contains split names in strings, so convert them to ints
-        self._split_dict = { "extra_unlabeled": 13 }
-        self._split_names = { "extra_unlabeled": "Unlabeled Extra" }
-        self._metadata_df['split'] = self.split_dict["extra_unlabeled"]
-        self._split_array = self._metadata_df['split'].values
+        self._split_dict = {"extra_unlabeled": 13}
+        self._split_names = {"extra_unlabeled": "Unlabeled Extra"}
+        self._metadata_df["split"] = self.split_dict["extra_unlabeled"]
+        self._split_array = self._metadata_df["split"].values
 
         # Metadata (Not Available)
         # We want grouper to assign all values to their own group, so fill
         # all metadata fields with '2'. The normal dataset has binary metadata,
         # so this will not overlap.
         self._identity_vars = [
-            'male',
-            'female',
-            'LGBTQ',
-            'christian',
-            'muslim',
-            'other_religions',
-            'black',
-            'white'
+            "male",
+            "female",
+            "LGBTQ",
+            "christian",
+            "muslim",
+            "other_religions",
+            "black",
+            "white",
         ]
         self._auxiliary_vars = [
-            'identity_any',
-            'severe_toxicity',
-            'obscene',
-            'threat',
-            'insult',
-            'identity_attack',
-            'sexual_explicit'
+            "identity_any",
+            "severe_toxicity",
+            "obscene",
+            "threat",
+            "insult",
+            "identity_attack",
+            "sexual_explicit",
         ]
 
-        self._y_array = torch.LongTensor(self._metadata_df['toxicity'].values >= 0.5)
+        self._y_array = torch.LongTensor(self._metadata_df["toxicity"].values >= 0.5)
         self._metadata_array = torch.cat(
             (
                 torch.ones(
                     len(self._metadata_df),
-                    len(self._identity_vars) + len(self._auxiliary_vars)
-                ) * 2,
-                self._y_array.unsqueeze(dim=-1)
+                    len(self._identity_vars) + len(self._auxiliary_vars),
+                )
+                * 2,
+                self._y_array.unsqueeze(dim=-1),
             ),
-            axis=1
+            axis=1,
         )
-        self._metadata_fields = self._identity_vars + self._auxiliary_vars + ['y']
+        self._metadata_fields = self._identity_vars + self._auxiliary_vars + ["y"]
 
         super().__init__(root_dir, download, split_scheme)
 
     def get_input(self, idx):
         return self._text_array[idx]
-

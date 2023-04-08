@@ -14,6 +14,7 @@ from wilds.common.metrics.all_metrics import Accuracy
 TEST_CENTER = 2
 VAL_CENTER = 1
 
+
 class Camelyon17Dataset(WILDSDataset):
     """
     The CAMELYON17-WILDS histopathology dataset.
@@ -53,90 +54,93 @@ class Camelyon17Dataset(WILDSDataset):
         https://creativecommons.org/publicdomain/zero/1.0/
     """
 
-    _dataset_name = 'camelyon17'
+    _dataset_name = "camelyon17"
     _versions_dict = {
-        '1.0': {
-            'download_url': 'https://worksheets.codalab.org/rest/bundles/0xe45e15f39fb54e9d9e919556af67aabe/contents/blob/',
-            'compressed_size': 10_658_709_504}}
+        "1.0": {
+            "download_url": "https://worksheets.codalab.org/rest/bundles/0xe45e15f39fb54e9d9e919556af67aabe/contents/blob/",
+            "compressed_size": 10_658_709_504,
+        }
+    }
 
-    def __init__(self, version=None, root_dir='data', download=False, split_scheme='official'):
+    def __init__(
+        self, version=None, root_dir="data", download=False, split_scheme="official"
+    ):
         self._version = version
         self._data_dir = self.initialize_data_dir(root_dir, download)
-        self._original_resolution = (96,96)
+        self._original_resolution = (96, 96)
 
         # Read in metadata
         self._metadata_df = pd.read_csv(
-            os.path.join(self._data_dir, 'metadata.csv'),
+            os.path.join(self._data_dir, "metadata.csv"),
             index_col=0,
-            dtype={'patient': 'str'})
+            dtype={"patient": "str"},
+        )
 
         # Get the y values
-        self._y_array = torch.LongTensor(self._metadata_df['tumor'].values)
+        self._y_array = torch.LongTensor(self._metadata_df["tumor"].values)
         self._y_size = 1
         self._n_classes = 2
 
         # Get filenames
         self._input_array = [
-            f'patches/patient_{patient}_node_{node}/patch_patient_{patient}_node_{node}_x_{x}_y_{y}.png'
-            for patient, node, x, y in
-            self._metadata_df.loc[:, ['patient', 'node', 'x_coord', 'y_coord']].itertuples(index=False, name=None)]
+            f"patches/patient_{patient}_node_{node}/patch_patient_{patient}_node_{node}_x_{x}_y_{y}.png"
+            for patient, node, x, y in self._metadata_df.loc[
+                :, ["patient", "node", "x_coord", "y_coord"]
+            ].itertuples(index=False, name=None)
+        ]
 
-        self._split_dict = {
-            'train': 0,
-            'id_val': 1,
-            'test': 2,
-            'val': 3
-        }
+        self._split_dict = {"train": 0, "id_val": 1, "test": 2, "val": 3}
         self._split_names = {
-            'train': 'Train',
-            'id_val': 'Validation (ID)',
-            'test': 'Test',
-            'val': 'Validation (OOD)',
+            "train": "Train",
+            "id_val": "Validation (ID)",
+            "test": "Test",
+            "val": "Validation (OOD)",
         }
 
         # Extract splits
-        centers = self._metadata_df['center'].values.astype('long')
+        centers = self._metadata_df["center"].values.astype("long")
         num_centers = int(np.max(centers)) + 1
-        val_center_mask = (self._metadata_df['center'] == VAL_CENTER)
-        test_center_mask = (self._metadata_df['center'] == TEST_CENTER)
-        self._metadata_df.loc[val_center_mask, 'split'] = self.split_dict['val']
-        self._metadata_df.loc[test_center_mask, 'split'] = self.split_dict['test']
+        val_center_mask = self._metadata_df["center"] == VAL_CENTER
+        test_center_mask = self._metadata_df["center"] == TEST_CENTER
+        self._metadata_df.loc[val_center_mask, "split"] = self.split_dict["val"]
+        self._metadata_df.loc[test_center_mask, "split"] = self.split_dict["test"]
 
         self._split_scheme = split_scheme
-        if self._split_scheme == 'official':
+        if self._split_scheme == "official":
             pass
-        elif self._split_scheme == 'mixed-to-test':
+        elif self._split_scheme == "mixed-to-test":
             # For the mixed-to-test setting,
             # we move slide 23 (corresponding to patient 042, node 3 in the original dataset)
             # from the test set to the training set
-            slide_mask = (self._metadata_df['slide'] == 23)
-            self._metadata_df.loc[slide_mask, 'split'] = self.split_dict['train']
+            slide_mask = self._metadata_df["slide"] == 23
+            self._metadata_df.loc[slide_mask, "split"] = self.split_dict["train"]
         else:
-            raise ValueError(f'Split scheme {self._split_scheme} not recognized')
-        self._split_array = self._metadata_df['split'].values
+            raise ValueError(f"Split scheme {self._split_scheme} not recognized")
+        self._split_array = self._metadata_df["split"].values
 
         self._metadata_array = torch.stack(
-            (torch.LongTensor(centers),
-             torch.LongTensor(self._metadata_df['slide'].values),
-             self._y_array),
-            dim=1)
-        self._metadata_fields = ['hospital', 'slide', 'y']
+            (
+                torch.LongTensor(centers),
+                torch.LongTensor(self._metadata_df["slide"].values),
+                self._y_array,
+            ),
+            dim=1,
+        )
+        self._metadata_fields = ["hospital", "slide", "y"]
 
         self._eval_grouper = CombinatorialGrouper(
-            dataset=self,
-            groupby_fields=['slide'])
+            dataset=self, groupby_fields=["slide"]
+        )
 
         super().__init__(root_dir, download, split_scheme)
 
     def get_input(self, idx):
-       """
-       Returns x for a given idx.
-       """
-       img_filename = os.path.join(
-           self.data_dir,
-           self._input_array[idx])
-       x = Image.open(img_filename).convert('RGB')
-       return x
+        """
+        Returns x for a given idx.
+        """
+        img_filename = os.path.join(self.data_dir, self._input_array[idx])
+        x = Image.open(img_filename).convert("RGB")
+        return x
 
     def eval(self, y_pred, y_true, metadata, prediction_fn=None):
         """
@@ -154,6 +158,5 @@ class Camelyon17Dataset(WILDSDataset):
         """
         metric = Accuracy(prediction_fn=prediction_fn)
         return self.standard_group_eval(
-            metric,
-            self._eval_grouper,
-            y_pred, y_true, metadata)
+            metric, self._eval_grouper, y_pred, y_true, metadata
+        )

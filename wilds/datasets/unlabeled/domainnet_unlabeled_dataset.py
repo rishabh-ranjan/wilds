@@ -7,7 +7,11 @@ import pandas as pd
 from PIL import Image
 
 from wilds.common.utils import map_to_id_array
-from wilds.datasets.domainnet_dataset import DOMAIN_NET_CATEGORIES, DOMAIN_NET_DOMAINS, SENTRY_DOMAINS
+from wilds.datasets.domainnet_dataset import (
+    DOMAIN_NET_CATEGORIES,
+    DOMAIN_NET_DOMAINS,
+    SENTRY_DOMAINS,
+)
 from wilds.datasets.unlabeled.wilds_unlabeled_dataset import WILDSUnlabeledDataset
 
 
