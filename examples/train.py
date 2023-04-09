@@ -1,5 +1,8 @@
 import copy
+import json
+from pathlib import Path
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 import math
 
@@ -16,7 +19,14 @@ from utils import (
 
 
 def run_epoch(
-    algorithm, dataset, general_logger, epoch, config, train, unlabeled_dataset=None
+    algorithm,
+    dataset,
+    general_logger,
+    epoch,
+    config,
+    train,
+    unlabeled_dataset=None,
+    my_eval=False,
 ):
     if dataset["verbose"]:
         general_logger.write(f"\n{dataset['name']}:\n")
@@ -53,6 +63,8 @@ def run_epoch(
     # Using enumerate(iterator) can sometimes leak memory in some environments (!)
     # so we manually increment batch_idx
     batch_idx = 0
+    my_yhats = []
+    my_ys = []
     for labeled_batch in batches:
         if train:
             if unlabeled_dataset:
@@ -68,6 +80,9 @@ def run_epoch(
                 )
         else:
             batch_results = algorithm.evaluate(labeled_batch)
+
+        my_yhats.append(batch_results["y_pred"].detach().clone())
+        my_ys.append(batch_results["y_true"].detach().clone())
 
         # These tensors are already detached, but we need to clone them again
         # Otherwise they don't get garbage collected properly in some versions
@@ -96,6 +111,9 @@ def run_epoch(
 
         batch_idx += 1
 
+    my_yhat = torch.cat(my_yhats)
+    my_y = torch.cat(my_ys)
+
     epoch_y_pred = collate_list(epoch_y_pred)
     epoch_y_true = collate_list(epoch_y_true)
     epoch_metadata = collate_list(epoch_metadata)
@@ -120,7 +138,10 @@ def run_epoch(
         general_logger.write("Epoch eval:\n")
         general_logger.write(results_str)
 
-    return results, epoch_y_pred
+    if my_eval:
+        return results, epoch_y_pred, my_yhat, my_y
+    else:
+        return results, epoch_y_pred
 
 
 def train(
@@ -155,11 +176,36 @@ def train(
         )
 
         # Then run val
-        val_results, y_pred = run_epoch(
-            algorithm, datasets["val"], general_logger, epoch, config, train=False
+        val_results, y_pred, my_yhat, my_y = run_epoch(
+            algorithm,
+            datasets["val"],
+            general_logger,
+            epoch,
+            config,
+            train=False,
+            my_eval=True,
         )
         curr_val_metric = val_results[config.val_metric]
         general_logger.write(f"Validation {config.val_metric}: {curr_val_metric:.3f}\n")
+
+        print()
+        print("-" * 80)
+        Path(f"{my_root}/epochs/{epoch}").mkdir(parents=True)
+        torch.save(my_yhat, f"{my_root}/epochs/{epoch}/val_yhat.pt")
+        print(f"saved {my_root}/epochs/{epoch}/val_yhat.pt")
+        if epoch == 0:
+            torch.save(my_y, f"{my_root}/epochs/{epoch}/val_y.pt")
+            print(f"saved {my_root}/epochs/{epoch}/val_y.pt")
+        # if my_y.dim() == 2:
+        #     err = (my_yhat != my_y).float().mean().item()
+        # else:
+        #     err = (my_yhat.argmax(-1) != my_y).float().mean().item()
+        my_metrics = {
+            "epochs": epoch + 1,
+            "lr": algorithm.optimizer.param_groups[0]["lr"],
+            # "err/val": err,
+            # "nll/val": F.cross_entropy(my_yhat, my_y).item(),
+        }
 
         if best_val_metric is None:
             is_best = True
@@ -187,10 +233,38 @@ def train(
         else:
             additional_splits = config.eval_splits
         for split in additional_splits:
-            _, y_pred = run_epoch(
-                algorithm, datasets[split], general_logger, epoch, config, train=False
+            _, y_pred, my_yhat, my_y = run_epoch(
+                algorithm,
+                datasets[split],
+                general_logger,
+                epoch,
+                config,
+                train=False,
+                my_eval=True,
             )
             save_pred_if_needed(y_pred, datasets[split], epoch, config, is_best)
+
+            torch.save(my_yhat, f"{my_root}/epochs/{epoch}/{split}_yhat.pt")
+            print(f"saved {my_root}/epochs/{epoch}/{split}_yhat.pt")
+            if epoch == 0:
+                torch.save(my_y, f"{my_root}/epochs/{epoch}/{split}_y.pt")
+                print(f"saved {my_root}/epochs/{epoch}/{split}_y.pt")
+            # if my_y.dim() == 2:
+            #     err = ((my_yhat >= 0) != my_y).float().mean().item()
+            # else:
+            #     err = (my_yhat.argmax(-1) != my_y).float().mean().item()
+            # my_metrics.update(
+            #     {
+            #         f"err/{split}": err,
+            #         f"nll/{split}": F.cross_entropy(my_yhat, my_y).item(),
+            #     }
+            # )
+
+        with open(f"{my_root}/epochs/{epoch}/metrics.json", "w") as f:
+            json.dump(my_metrics, f, indent=4)
+        print(json.dumps(my_metrics, indent=4))
+        print("-" * 80)
+        print()
 
         general_logger.write("\n")
 

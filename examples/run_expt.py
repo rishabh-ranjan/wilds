@@ -31,6 +31,7 @@ from utils import (
     get_model_prefix,
     move_to,
 )
+import train as my_train
 from train import train, evaluate, infer_predictions
 from algorithms.initializer import initialize_algorithm, infer_d_out
 from transforms import initialize_transform
@@ -349,8 +350,36 @@ def main():
         help="keyword arguments for wandb.init() passed as key1=value1 key2=value2",
     )
 
+    parser.add_argument(
+        "--my_store",
+        type=str,
+        required=True,
+    )
+
     config = parser.parse_args()
     config = populate_defaults(config)
+
+    ################################################################################
+
+    import json
+    from pathlib import Path
+    import sys
+    import time
+
+    my_ts = time.time_ns()
+    my_root = f"store/{config.my_store}/{my_ts}"
+    my_train.my_root = my_root
+    Path(my_root).mkdir(parents=True)
+    Path(f"{my_root}/epochs").mkdir()
+
+    print(f"tail -f {my_root}/stderr.txt {my_root}/stdout.txt")
+    sys.stderr = open(f"{my_root}/stderr.txt", "w")
+    sys.stdout = open(f"{my_root}/stdout.txt", "w")
+
+    with open(f"{my_root}/config.json", "w") as f:
+        json.dump(vars(config), f, indent=4)
+
+    ################################################################################
 
     # For the GlobalWheat detection dataset,
     # we need to change the multiprocessing strategy or there will be
@@ -695,6 +724,18 @@ def main():
     for split in datasets:
         datasets[split]["eval_logger"].close()
         datasets[split]["algo_logger"].close()
+
+    ################################################################################
+
+    with open(f"{my_root}/config.json", "r") as f:
+        config_dict = json.load(f)
+
+    config_dict["done"] = True
+
+    with open(f"{my_root}/config.json", "w") as f:
+        json.dump(config_dict, f, indent=4)
+
+    ################################################################################
 
 
 if __name__ == "__main__":
